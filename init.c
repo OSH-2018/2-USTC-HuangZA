@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include<stdlib.h>
@@ -94,42 +95,14 @@ int main() {
         }
 
         /* 外部命令 */
-      if (pipe_num == 0){
-          pid_t pid = fork();
-          if (pid == 0) {
-              /* 子进程 */
-              execvp(args[0], args);
-              /* execvp失败 */
-              return 255;
-          }
-        /* 父进程 */
-//          wait(NULL);
-//          fflush(stdout);
-//从man waitpid上直接复制下来的
-do {
-pid_t      w = waitpid(pid, &wstatus, WUNTRACED | WCONTINUED);
-           if (w == -1) {
-               perror("waitpid");
-               exit(EXIT_FAILURE);
-           }
-/*
-           if (WIFEXITED(wstatus)) {
-               printf("exited, status=%d\n", WEXITSTATUS(wstatus));
-           } else if (WIFSIGNALED(wstatus)) {
-               printf("killed by signal %d\n", WTERMSIG(wstatus));
-           } else if (WIFSTOPPED(wstatus)) {
-               printf("stopped by signal %d\n", WSTOPSIG(wstatus));
-           } else if (WIFCONTINUED(wstatus)) {
-               printf("continued\n");
-           }
-*/       } while (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus));
-      }
-      else{
+
+
       for(i=0,j=0;i<=pipe_num;i++)
       {
         int con;
         int pipefd[2];
         pid_t cpid;
+        int fp1,fp2,fp3;
         for(con=0;(args[j] != NULL);j++,con++)
         {
           if(strcmp(args[j],"|") == 0) break;
@@ -165,6 +138,50 @@ pid_t      w = waitpid(pid, &wstatus, WUNTRACED | WCONTINUED);
             }
             close(prev);
           }
+        //如果有重定向符此时才生效，以覆盖管道
+        for(int noob=0;pipe_args[noob]!=NULL;noob++)
+        {
+            if((strcmp(pipe_args[noob],">>")==0)||(strcmp(pipe_args[noob],"1>>")==0))
+            {
+                fp1=open(pipe_args[noob+1],O_CREAT | O_RDWR | O_APPEND,0644);
+                dup2(fp1,STDOUT_FILENO);
+                pipe_args[noob]=NULL;
+                close(fp1);
+                continue;
+            }
+            if((strcmp(pipe_args[noob],">")==0)||(strcmp(pipe_args[noob],"1>")==0))
+            {
+                fp1=open(pipe_args[noob+1],O_CREAT | O_RDWR | O_TRUNC,0644);
+                dup2(fp1,STDOUT_FILENO);
+                pipe_args[noob]=NULL;
+                close(fp1);
+                continue;
+            }
+            if(strcmp(pipe_args[noob],"<")==0)
+            {
+                fp2=open(pipe_args[noob+1],O_CREAT | O_RDWR ,0644);
+                dup2(fp2,STDIN_FILENO);
+                pipe_args[noob]=NULL;
+                close(fp2);
+                continue;
+            }
+            if(strcmp(pipe_args[noob],"2>>")==0)
+            {
+                fp3=open(pipe_args[noob+1],O_CREAT | O_RDWR | O_APPEND,0644);
+                dup2(fp3,STDERR_FILENO);
+                pipe_args[noob]=NULL;
+                close(fp3);
+                continue;
+            }
+            if(strcmp(pipe_args[noob],"2>")==0)
+            {
+                fp3=open(pipe_args[noob+1],O_CREAT | O_RDWR | O_TRUNC,0644);
+                dup2(fp3,STDERR_FILENO);
+                pipe_args[noob]=NULL;
+                close(fp3);
+                continue;
+            }
+        }
           execvp(pipe_args[0],pipe_args);
         }
         //父进程
@@ -194,6 +211,6 @@ pid_t      w = waitpid(pid, &wstatus, WUNTRACED | WCONTINUED);
         }
       }
       //输出结束
-    }
+
     }
 }
