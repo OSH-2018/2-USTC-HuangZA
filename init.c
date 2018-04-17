@@ -53,7 +53,7 @@ int main() {
                 chdir(args[1]);
             continue;
         }
-        if ((strcmp(args[0], "pwd") == 0 )&&(pipe_num == 0)) {
+        if (strcmp(args[0], "pwd") == 0 ) {
             puts(getcwd(wd, 4096));
             continue;
         }
